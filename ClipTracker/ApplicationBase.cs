@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace ClipTracker {
@@ -29,8 +25,12 @@ namespace ClipTracker {
         public Container Components;
         public NotifyIcon TrayIcon;
         public ContextMenu TrayMenu;
+        private ClipboardWatcher ClipboardWatcher;
 
         private ApplicationBase() {
+            // Initialize clipboard manager.
+            ClipboardWatcher = new ClipboardWatcher();
+
             // Create a simple tray menu with only one item.
             TrayMenu = new ContextMenu();
             TrayMenu.MenuItems.Add("Exit", OnExit);
@@ -40,17 +40,17 @@ namespace ClipTracker {
                 ContextMenu = TrayMenu,
                 Icon = new Icon(SystemIcons.Application, 40, 40),
                 Text = "ClipTracker",
-                Visible = true
+                Visible = true,
             };
 //            notifyIcon.ContextMenuStrip.Opening += ContextMenuStrip_Opening;
 //            notifyIcon.DoubleClick += notifyIcon_DoubleClick;
 
             Application.ApplicationExit += new EventHandler(OnApplicationExit);
+            ClipboardWatcher.ClipboardUpdate += new EventHandler(OnClipboardUpdate);
         }
 
-        void OnApplicationExit(object sender, EventArgs e) {
-            // Call dispose method for cleanup.
-            Dispose();
+        private void OnClipboardUpdate(object sender, EventArgs e) {
+            MessageBox.Show("Clipboard updated", "Info");
         }
 
         private void OnExit(object sender, EventArgs e) {
@@ -58,10 +58,25 @@ namespace ClipTracker {
             Application.Exit();
         }
 
+        void OnApplicationExit(object sender, EventArgs e) {
+            // Call dispose method for cleanup.
+            Dispose();
+        }
+
         public void Dispose() {
-            // Release the icon resource.
-            Components.Dispose();
-//            trayIcon.Dispose();
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private void Dispose(bool disposing) {
+            ClipboardWatcher.Dispose();
+            ClipboardWatcher = null;
+
+            // If called not from destuctor.
+            if (disposing) {
+                // Release the icon resource.
+                Components.Dispose();
+            }
         }
     }
 }
