@@ -25,10 +25,12 @@ namespace ClipTracker {
         public Container Components;
         public NotifyIcon TrayIcon;
         public ContextMenu TrayMenu;
+        private Storage Storage;
         private ClipboardWatcher ClipboardWatcher;
 
         private ApplicationBase() {
-            // Initialize clipboard manager.
+            // Initialize instances.
+            Storage = new Storage();
             ClipboardWatcher = new ClipboardWatcher();
 
             // Create a simple tray menu with only one item.
@@ -51,6 +53,9 @@ namespace ClipTracker {
 
         private void OnClipboardUpdate(object sender, EventArgs e) {
             MessageBox.Show("Clipboard updated", "Info");
+            if (Clipboard.ContainsText()) {
+                Storage.AddText(Clipboard.GetText());
+            }
         }
 
         private void OnExit(object sender, EventArgs e) {
@@ -70,7 +75,7 @@ namespace ClipTracker {
 
         private void Dispose(bool disposing) {
             ClipboardWatcher.Dispose();
-            ClipboardWatcher = null;
+            Storage.Dispose();
 
             // If called not from destuctor.
             if (disposing) {
