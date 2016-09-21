@@ -45,7 +45,7 @@ namespace ClipTracker {
 
       SQLiteCommand Command;
       Command = db.CreateCommand();
-      Command.CommandText = "CREATE TABLE 'data' ('type' VARCHAR NOT NULL , 'data' BLOB DEFAULT NULL, 'date' DATETIME NOT NULL  DEFAULT CURRENT_TIMESTAMP)";
+      Command.CommandText = "CREATE TABLE 'data' ('type' VARCHAR NOT NULL, 'data' BLOB DEFAULT NULL, 'hash' VARCHAR NOT NULL, 'date' DATETIME NOT NULL  DEFAULT CURRENT_TIMESTAMP)";
       Command.ExecuteNonQuery();
       Command.Dispose();
 
@@ -75,12 +75,28 @@ namespace ClipTracker {
       db.Dispose();
     }
 
-    public void AddText(String text) {
-      SQLiteCommand Command = db.CreateCommand();
-      Command.CommandText = "INSERT INTO 'data' ('type', 'data') VALUES (@Type, @Data)";
-      Command.Parameters.Add("@Type", DbType.String).Value = "text/plain";
-      Command.Parameters.Add("@Data", DbType.Binary).Value = StringToBytes(text);
-      Command.ExecuteNonQuery();
+    public void AddText(string text) {
+      var command = db.CreateCommand();
+      command.CommandText = "INSERT INTO 'data' ('type', 'data', 'hash') VALUES (@Type, @Data, @Hash)";
+      command.Parameters.Add("@Type", DbType.String).Value = "text/plain";
+      command.Parameters.Add("@Data", DbType.Binary).Value = StringToBytes(text);
+      command.Parameters.Add("@Hash", DbType.String).Value = GetMd5FromString(text);
+      command.ExecuteNonQuery();
+    }
+
+    private static string GetMd5FromString(string text) {
+      // byte array representation of that string
+      var encodedText = new UTF8Encoding().GetBytes(text);
+
+      // need MD5 to calculate the hash
+      var hash = ((HashAlgorithm) CryptoConfig.CreateFromName("MD5")).ComputeHash(encodedText);
+
+      // string representation (similar to UNIX format)
+      return BitConverter.ToString(hash)
+        // without dashes
+        .Replace("-", string.Empty)
+        // make lowercase
+        .ToLower();
     }
 
     public void GetAmount(int amount, GetCallback getCallback) {
