@@ -22,6 +22,7 @@ namespace ClipTracker {
     public SQLiteConnection db;
     private string locationPath;
     private string filePath;
+    private string lastHash;
 
     public Storage() {
       var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
@@ -30,10 +31,19 @@ namespace ClipTracker {
       this.filePath = Path.Combine(this.locationPath, "storage.sqlite");
 
       if (!File.Exists(this.filePath)) {
-        this.PerformInstallation();
+        // Looks like storage is not exist yet, let's perform installation then and create a new storage.
+        PerformInstallation();
       }
       db = new SQLiteConnection("Data Source=" + filePath + "; Version=3;");
       db.Open();
+
+      // We have to initialize last hash, to avoid preforming useless operations.
+      var command = db.CreateCommand();
+      command.CommandText = "SELECT hash FROM 'data' ORDER BY date DESC LIMIT 1";
+      var hash = command.ExecuteScalar();
+      if (hash != null) {
+        lastHash = (string) hash;
+      }
     }
 
     private void PerformInstallation() {
@@ -43,11 +53,10 @@ namespace ClipTracker {
       db = new SQLiteConnection("Data Source=" + filePath + "; Version=3;");
       db.Open();
 
-      SQLiteCommand Command;
-      Command = db.CreateCommand();
-      Command.CommandText = "CREATE TABLE 'data' ('type' VARCHAR NOT NULL, 'data' BLOB DEFAULT NULL, 'hash' VARCHAR NOT NULL, 'date' DATETIME NOT NULL  DEFAULT CURRENT_TIMESTAMP)";
-      Command.ExecuteNonQuery();
-      Command.Dispose();
+      var command = db.CreateCommand();
+      command.CommandText = "CREATE TABLE 'data' ('type' VARCHAR NOT NULL, 'data' BLOB DEFAULT NULL, 'hash' VARCHAR NOT NULL, 'date' DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)";
+      command.ExecuteNonQuery();
+      command.Dispose();
 
       db.Close();
       db.Dispose();
@@ -76,12 +85,38 @@ namespace ClipTracker {
     }
 
     public void AddText(string text) {
+      var hash = GetMd5FromString(text);
+      // Since Clipboard is implemented in a very poor way in Windows, there can be situations while the same data may
+      // come a couple of times. In that case we have to skip adding that data.
+      if (hash == lastHash) {
+        return;
+      }
+
+      // Before adding new record we have to check if this data was already added, and if so, let's just update date.
       var command = db.CreateCommand();
+      command.CommandText = "SELECT rowid FROM 'data' WHERE hash = @Hash";
+      command.Parameters.Add("@Hash", DbType.String).Value = hash;
+      var rowId = command.ExecuteScalar();
+      if (rowId != null) {
+        // It seems like record with this data was already added, so let's just update it's date.
+        command = db.CreateCommand();
+        command.CommandText = "UPDATE 'data' SET date = datetime('now') WHERE rowid = @RowId";
+        command.Parameters.Add("@RowId", DbType.UInt32).Value = rowId;
+        command.ExecuteNonQuery();
+
+        lastHash = hash;
+        return;
+      }
+
+      // So data is new, let's add a new record then.
+      command = db.CreateCommand();
       command.CommandText = "INSERT INTO 'data' ('type', 'data', 'hash') VALUES (@Type, @Data, @Hash)";
       command.Parameters.Add("@Type", DbType.String).Value = "text/plain";
       command.Parameters.Add("@Data", DbType.Binary).Value = StringToBytes(text);
-      command.Parameters.Add("@Hash", DbType.String).Value = GetMd5FromString(text);
+      command.Parameters.Add("@Hash", DbType.String).Value = hash;
       command.ExecuteNonQuery();
+
+      lastHash = hash;
     }
 
     private static string GetMd5FromString(string text) {
