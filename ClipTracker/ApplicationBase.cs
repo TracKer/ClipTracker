@@ -70,7 +70,13 @@ namespace ClipTracker {
 
     public void AddTrayMenuItemFromDb(int rowId, string type, byte[] data) {
       if (type == "text/plain") {
-        var item = new MenuItem(Storage.BytesToString(data)) {Tag = rowId};
+        var text = Storage.BytesToString(data);
+        if (text.Length > 43) {
+          var left = text.Substring(0, 20);
+          var right = text.Substring(text.Length - 20);
+          text = left + "..." + right;
+        }
+        var item = new MenuItem(text) {Tag = rowId};
         item.Click += OnClipboardCopyClick;
         TrayMenu.MenuItems.Add(item);
       }
