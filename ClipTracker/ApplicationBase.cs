@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using System.ComponentModel;
-using System.Data.Entity.Core.Common.EntitySql;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -36,14 +35,14 @@ namespace ClipTracker {
     private ApplicationBase() {
       // Initialize instances.
       Storage = new Storage();
-      StorageGetCallback = new GetCallback(AddTrayMenuItemFromDB);
+      StorageGetCallback = AddTrayMenuItemFromDb;
       ClipboardWatcher = new ClipboardWatcher();
 
       // Create a simple tray menu with only one item.
       TrayMenu = new ContextMenu();
       TrayMenu.MenuItems.Add("Exit", OnExit);
       TrayMenu.MenuItems.Add("-");
-      TrayMenu.Popup += new EventHandler(OnTrayMenuPopup);
+      TrayMenu.Popup += OnTrayMenuPopup;
 
       Components = new Container();
       TrayIcon = new NotifyIcon(Components) {
@@ -55,36 +54,34 @@ namespace ClipTracker {
 //            notifyIcon.ContextMenuStrip.Opening += ContextMenuStrip_Opening;
 //            notifyIcon.DoubleClick += notifyIcon_DoubleClick;
 
-      Application.ApplicationExit += new EventHandler(OnApplicationExit);
-      ClipboardWatcher.ClipboardUpdate += new EventHandler(OnClipboardUpdate);
+      Application.ApplicationExit += OnApplicationExit;
+      ClipboardWatcher.ClipboardUpdate += OnClipboardUpdate;
     }
 
     private void OnClipboardCopyClick(object sender, EventArgs e) {
-      MenuItem menuItem = (MenuItem) sender;
-      int id = (int) menuItem.Tag;
-      StorageItem storageItem = Storage.GetItem(id);
+      var menuItem = (MenuItem) sender;
+      var id = (int) menuItem.Tag;
+      var storageItem = Storage.GetItem(id);
       if (storageItem.id == id) {
-        string data = Storage.BytesToString(storageItem.data);
-//                Clipboard.SetData();
+        var data = Storage.BytesToString(storageItem.data);
         Clipboard.SetText(data);
       }
     }
 
-    public void AddTrayMenuItemFromDB(int rowId, string type, byte[] data) {
+    public void AddTrayMenuItemFromDb(int rowId, string type, byte[] data) {
       if (type == "text/plain") {
-        MenuItem item = new MenuItem(Storage.BytesToString(data));
-        item.Tag = rowId;
-        item.Click += new EventHandler(OnClipboardCopyClick);
+        var item = new MenuItem(Storage.BytesToString(data)) {Tag = rowId};
+        item.Click += OnClipboardCopyClick;
         TrayMenu.MenuItems.Add(item);
       }
     }
 
     private void OnTrayMenuPopup(object sender, EventArgs e) {
       // Cleanup menu.
-      foreach (MenuItem MenuItem in TrayMenu.MenuItems.OfType<MenuItem>().Reverse()) {
-        bool isClipboard = (MenuItem.Tag != null);
+      foreach (var menuItem in TrayMenu.MenuItems.OfType<MenuItem>().Reverse()) {
+        var isClipboard = (menuItem.Tag != null);
         if (isClipboard) {
-          MenuItem.Dispose();
+          menuItem.Dispose();
         }
       }
 
@@ -92,7 +89,6 @@ namespace ClipTracker {
     }
 
     private void OnClipboardUpdate(object sender, EventArgs e) {
-//            MessageBox.Show("Clipboard updated", "Info");
       if (Clipboard.ContainsText()) {
         Storage.AddText(Clipboard.GetText());
       }
@@ -103,7 +99,7 @@ namespace ClipTracker {
       Application.Exit();
     }
 
-    void OnApplicationExit(object sender, EventArgs e) {
+    private void OnApplicationExit(object sender, EventArgs e) {
       // Call dispose method for cleanup.
       Dispose();
     }
