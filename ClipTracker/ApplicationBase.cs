@@ -72,7 +72,7 @@ namespace ClipTracker {
         // Hack from here:
         // http://stackoverflow.com/a/3782665/563049
         var popupMenu = new ContextMenu();
-        Storage.GetAmount(10, StorageGetCallback, popupMenu);
+        Storage.GetAmount(30, StorageGetCallback, popupMenu);
         var tmpMenu = TrayIcon.ContextMenu;
         TrayIcon.ContextMenu = popupMenu;
         var mi = typeof(NotifyIcon).GetMethod("ShowContextMenu", BindingFlags.Instance | BindingFlags.NonPublic);
