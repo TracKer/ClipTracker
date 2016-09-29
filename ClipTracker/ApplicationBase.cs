@@ -2,6 +2,7 @@
 using System.Linq;
 using System.ComponentModel;
 using System.Drawing;
+using System.Reflection;
 using System.Windows.Forms;
 
 namespace ClipTracker {
@@ -40,9 +41,8 @@ namespace ClipTracker {
 
       // Create a simple tray menu with only one item.
       TrayMenu = new ContextMenu();
-      TrayMenu.MenuItems.Add("Exit", OnExit);
       TrayMenu.MenuItems.Add("-");
-      TrayMenu.Popup += OnTrayMenuPopup;
+      TrayMenu.MenuItems.Add("Exit", OnExit);
 
       Components = new Container();
       TrayIcon = new NotifyIcon(Components) {
@@ -51,8 +51,7 @@ namespace ClipTracker {
         Text = "ClipTracker",
         Visible = true,
       };
-//            notifyIcon.ContextMenuStrip.Opening += ContextMenuStrip_Opening;
-//            notifyIcon.DoubleClick += notifyIcon_DoubleClick;
+      TrayIcon.MouseClick += OnTrayIconClick;
 
       Application.ApplicationExit += OnApplicationExit;
       ClipboardWatcher.ClipboardUpdate += OnClipboardUpdate;
@@ -68,9 +67,24 @@ namespace ClipTracker {
       }
     }
 
-    public void AddTrayMenuItemFromDb(int rowId, string type, byte[] data) {
+    private void OnTrayIconClick(object sender, MouseEventArgs e) {
+      if (e.Button == MouseButtons.Left) {
+        // Hack from here:
+        // http://stackoverflow.com/a/3782665/563049
+        var popupMenu = new ContextMenu();
+        Storage.GetAmount(10, StorageGetCallback, popupMenu);
+        var tmpMenu = TrayIcon.ContextMenu;
+        TrayIcon.ContextMenu = popupMenu;
+        var mi = typeof(NotifyIcon).GetMethod("ShowContextMenu", BindingFlags.Instance | BindingFlags.NonPublic);
+        mi.Invoke(TrayIcon, null);
+        TrayIcon.ContextMenu = tmpMenu;
+      }
+    }
+
+    public void AddTrayMenuItemFromDb(int rowId, string type, byte[] data, object tag) {
       if (type == "text/plain") {
         var text = Storage.BytesToString(data);
+        text = text.Trim();
         if (text.Length > 43) {
           var left = text.Substring(0, 20);
           var right = text.Substring(text.Length - 20);
@@ -78,20 +92,8 @@ namespace ClipTracker {
         }
         var item = new MenuItem(text) {Tag = rowId};
         item.Click += OnClipboardCopyClick;
-        TrayMenu.MenuItems.Add(item);
+        ((ContextMenu) tag).MenuItems.Add(item);
       }
-    }
-
-    private void OnTrayMenuPopup(object sender, EventArgs e) {
-      // Cleanup menu.
-      foreach (var menuItem in TrayMenu.MenuItems.OfType<MenuItem>().Reverse()) {
-        var isClipboard = (menuItem.Tag != null);
-        if (isClipboard) {
-          menuItem.Dispose();
-        }
-      }
-
-      Storage.GetAmount(10, StorageGetCallback);
     }
 
     private void OnClipboardUpdate(object sender, EventArgs e) {

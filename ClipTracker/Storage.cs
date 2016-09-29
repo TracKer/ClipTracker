@@ -15,7 +15,7 @@ namespace ClipTracker {
     public byte[] data;
   }
 
-  public delegate void GetCallback(int rowId, string type, byte[] data);
+  public delegate void GetCallback(int rowId, string type, byte[] data, object tag);
 
   class Storage {
 
@@ -134,7 +134,7 @@ namespace ClipTracker {
         .ToLower();
     }
 
-    public void GetAmount(int amount, GetCallback getCallback) {
+    public void GetAmount(int amount, GetCallback getCallback, object tag) {
       SQLiteCommand Command = db.CreateCommand();
       Command.CommandText = "SELECT rowid, type, data FROM 'data' ORDER BY date DESC LIMIT @Amount";
       Command.Parameters.Add("@Amount", DbType.Int32).Value = amount;
@@ -142,7 +142,7 @@ namespace ClipTracker {
       SQLiteDataReader reader = Command.ExecuteReader();
       while (reader.Read()) {
         byte[] data = GetBytes(reader, 2);
-        getCallback(reader.GetInt32(0), reader.GetString(1), data);
+        getCallback(reader.GetInt32(0), reader.GetString(1), data, tag);
       }
     }
 
