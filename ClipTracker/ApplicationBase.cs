@@ -29,20 +29,21 @@ namespace ClipTracker {
     public Container Components;
     public NotifyIcon TrayIcon;
     public ContextMenu TrayMenu;
-    private Storage Storage;
+    private StorageController StorageController;
     private ClipboardWatcher ClipboardWatcher;
     private GetCallback StorageGetCallback;
 
     private ApplicationBase() {
       // Initialize instances.
-      Storage = new Storage();
+      StorageController = new StorageController();
       StorageGetCallback = AddTrayMenuItemFromDb;
       ClipboardWatcher = new ClipboardWatcher();
 
       // Create a simple tray menu with only one item.
       TrayMenu = new ContextMenu();
+      TrayMenu.MenuItems.Add("Settings", OnMenuSettingsClick);
       TrayMenu.MenuItems.Add("-");
-      TrayMenu.MenuItems.Add("Exit", OnExit);
+      TrayMenu.MenuItems.Add("Exit", OnMenuExitClick);
 
       Components = new Container();
       TrayIcon = new NotifyIcon(Components) {
@@ -60,9 +61,9 @@ namespace ClipTracker {
     private void OnClipboardCopyClick(object sender, EventArgs e) {
       var menuItem = (MenuItem) sender;
       var id = (int) menuItem.Tag;
-      var storageItem = Storage.GetItem(id);
+      var storageItem = StorageController.DataStorage.GetItem(id);
       if (storageItem.id == id) {
-        var data = Storage.BytesToString(storageItem.data);
+        var data = DataStorage.BytesToString(storageItem.data);
         Clipboard.SetText(data);
       }
     }
@@ -72,7 +73,7 @@ namespace ClipTracker {
         // Hack from here:
         // http://stackoverflow.com/a/3782665/563049
         var popupMenu = new ContextMenu();
-        Storage.GetAmount(30, StorageGetCallback, popupMenu);
+        StorageController.DataStorage.GetAmount(30, StorageGetCallback, popupMenu);
         var tmpMenu = TrayIcon.ContextMenu;
         TrayIcon.ContextMenu = popupMenu;
         var mi = typeof(NotifyIcon).GetMethod("ShowContextMenu", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -83,7 +84,7 @@ namespace ClipTracker {
 
     public void AddTrayMenuItemFromDb(int rowId, string type, byte[] data, object tag) {
       if (type == "text/plain") {
-        var text = Storage.BytesToString(data);
+        var text = DataStorage.BytesToString(data);
         text = text.Trim();
         if (text.Length > 43) {
           var left = text.Substring(0, 20);
@@ -98,11 +99,15 @@ namespace ClipTracker {
 
     private void OnClipboardUpdate(object sender, EventArgs e) {
       if (Clipboard.ContainsText()) {
-        Storage.AddText(Clipboard.GetText());
+        StorageController.DataStorage.AddText(Clipboard.GetText());
       }
     }
 
-    private void OnExit(object sender, EventArgs e) {
+    private void OnMenuSettingsClick(object sender, EventArgs e) {
+      new FormSettings().ShowDialog();
+    }
+
+    private void OnMenuExitClick(object sender, EventArgs e) {
       // Perform exit from application.
       Application.Exit();
     }
@@ -119,7 +124,7 @@ namespace ClipTracker {
 
     private void Dispose(bool disposing) {
       ClipboardWatcher.Dispose();
-      Storage.Dispose();
+      StorageController.Dispose();
 
       // If called not from destuctor.
       if (disposing) {

@@ -8,10 +8,18 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace ClipTracker {
-    public partial class Form1 : Form {
-        public Form1() {
+namespace ClipTracker
+{
+    public partial class FormSettings : Form
+    {
+        public FormSettings()
+        {
             InitializeComponent();
+        }
+
+        private void btnClose_Click(object sender, EventArgs e)
+        {
+            Close();
         }
     }
 }
