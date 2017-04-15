@@ -51,6 +51,7 @@
             this.cbLoadOnStartup.TabIndex = 1;
             this.cbLoadOnStartup.Text = "Start ClipTracker with Windows";
             this.cbLoadOnStartup.UseVisualStyleBackColor = true;
+            this.cbLoadOnStartup.CheckedChanged += new System.EventHandler(this.cbLoadOnStartup_CheckedChanged);
             // 
             // FormSettings
             // 
@@ -67,6 +68,7 @@
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Settings";
+            this.Shown += new System.EventHandler(this.FormSettings_Shown);
             this.ResumeLayout(false);
             this.PerformLayout();
 
