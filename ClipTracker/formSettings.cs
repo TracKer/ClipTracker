@@ -38,11 +38,8 @@ namespace ClipTracker {
       }
     }
 
-    private void btnClose_Click(object sender, EventArgs e) {
-      Close();
-    }
-
     private void FormSettings_Shown(object sender, EventArgs e) {
+      // Load on Startup.
       if (CanReadKey("ClipTracker")) {
         try {
           RegistryKey rk = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", false);
@@ -64,12 +61,16 @@ namespace ClipTracker {
         cbLoadOnStartup.Checked = false;
         cbLoadOnStartup.Enabled = false;
       }
+
+      // Expiration period.
+      ExpirationPeriod.Value = ApplicationBase.GetInstance().StorageController.SettingsStorage.GetExpirationPeriod();
     }
 
-    private void cbLoadOnStartup_CheckedChanged(object sender, EventArgs e) {
+    private void btnSave_Click(object sender, EventArgs e) {
+      // Load on Startup.
       if (CanWriteKey("ClipTracker")) {
         try {
-          RegistryKey rk = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
+          var rk = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
           if (rk == null) {
             throw new Exception("Failed accessing registry.");
           }
@@ -81,6 +82,15 @@ namespace ClipTracker {
         }
         catch (Exception exception) { }
       }
+
+      // Expiration period.
+      ApplicationBase.GetInstance().StorageController.SettingsStorage.SetExpirationPeriod(ExpirationPeriod.Value);
+
+      Close();
+    }
+
+    private void btnCancel_Click(object sender, EventArgs e) {
+      Close();
     }
   }
 }

@@ -29,7 +29,7 @@ namespace ClipTracker {
     public Container Components;
     public NotifyIcon TrayIcon;
     public ContextMenu TrayMenu;
-    private StorageController StorageController;
+    public readonly StorageController StorageController;
     private ClipboardWatcher ClipboardWatcher;
     private GetCallback StorageGetCallback;
 
@@ -62,8 +62,8 @@ namespace ClipTracker {
       var menuItem = (MenuItem) sender;
       var id = (int) menuItem.Tag;
       var storageItem = StorageController.DataStorage.GetItem(id);
-      if (storageItem.id == id) {
-        var data = DataStorage.BytesToString(storageItem.data);
+      if (storageItem.Id == id) {
+        var data = DataStorage.BytesToString(storageItem.Data);
         Clipboard.SetText(data);
       }
     }

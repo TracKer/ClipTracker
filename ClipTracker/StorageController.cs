@@ -6,6 +6,7 @@ namespace ClipTracker {
   class StorageController: IDisposable {
     private readonly SQLiteConnection _db;
     public readonly DataStorage DataStorage;
+    public readonly SettingsStorage SettingsStorage;
 
     public StorageController() {
       var filePath = GetFilePath();
@@ -22,7 +23,7 @@ namespace ClipTracker {
       _db.Open();
 
       DataStorage = new DataStorage(_db, installNeeded);
-
+      SettingsStorage = new SettingsStorage(_db, installNeeded);
     }
 
     private static void PerformInstallation() {

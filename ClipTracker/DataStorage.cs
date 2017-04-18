@@ -1,56 +1,40 @@
 ﻿using System;
 using System.Data;
 using System.Data.SQLite;
-using System.Drawing.Text;
-using System.IO;
-using System.Net.Configuration;
 using System.Security.Cryptography;
 using System.Text;
-using System.Windows.Forms;
 
 namespace ClipTracker {
 
   struct DataStorageItem {
-    public int id;
-    public string type;
-    public byte[] data;
+    public int Id;
+    public string Type;
+    public byte[] Data;
   }
 
   public delegate void GetCallback(int rowId, string type, byte[] data, object tag);
 
-  class DataStorage {
-    private SQLiteConnection _db;
+  class DataStorage: BasicStorage {
     private string _lastHash;
 
-    public DataStorage(SQLiteConnection db, bool performInstall = false) {
-      _db = db;
-      var command = _db.CreateCommand();
-      if (performInstall) {
-        command.CommandText = "CREATE TABLE 'data' ('type' VARCHAR NOT NULL, 'data' BLOB DEFAULT NULL, 'hash' VARCHAR NOT NULL, 'date' DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)";
-        command.ExecuteNonQuery();
-        command.Dispose();
-      } else {
-        // We have to initialize last hash, to avoid preforming useless operations.
-        command = _db.CreateCommand();
-        command.CommandText = "SELECT hash FROM 'data' ORDER BY date DESC LIMIT 1";
-        var hash = command.ExecuteScalar();
-        if (hash != null) {
-          _lastHash = (string) hash;
-        }
-        command.Dispose();
+    public DataStorage(SQLiteConnection db, bool performInstall = false) : base(db, performInstall) { }
+
+    protected override void Install() {
+      var command = Db.CreateCommand();
+      command.CommandText = "CREATE TABLE 'data' ('type' VARCHAR NOT NULL, 'data' BLOB DEFAULT NULL, 'hash' VARCHAR NOT NULL, 'date' DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)";
+      command.ExecuteNonQuery();
+      command.Dispose();
+    }
+
+    protected override void Init() {
+      // We have to initialize last hash, to avoid preforming useless operations.
+      var command = Db.CreateCommand();
+      command.CommandText = "SELECT hash FROM 'data' ORDER BY date DESC LIMIT 1";
+      var hash = command.ExecuteScalar();
+      if (hash != null) {
+        _lastHash = (string) hash;
       }
-    }
-
-    static byte[] StringToBytes(string str) {
-      byte[] bytes = new byte[str.Length * sizeof(char)];
-      System.Buffer.BlockCopy(str.ToCharArray(), 0, bytes, 0, bytes.Length);
-      return bytes;
-    }
-
-    public static string BytesToString(byte[] bytes) {
-      char[] chars = new char[bytes.Length / sizeof(char)];
-      System.Buffer.BlockCopy(bytes, 0, chars, 0, bytes.Length);
-      return new string(chars);
+      command.Dispose();
     }
 
     public void AddText(string text) {
@@ -62,28 +46,31 @@ namespace ClipTracker {
       }
 
       // Before adding new record we have to check if this data was already added, and if so, let's just update date.
-      var command = _db.CreateCommand();
+      var command = Db.CreateCommand();
       command.CommandText = "SELECT rowid FROM 'data' WHERE hash = @Hash";
       command.Parameters.Add("@Hash", DbType.String).Value = hash;
       var rowId = command.ExecuteScalar();
+      command.Dispose();
       if (rowId != null) {
         // It seems like record with this data was already added, so let's just update it's date.
-        command = _db.CreateCommand();
+        command = Db.CreateCommand();
         command.CommandText = "UPDATE 'data' SET date = datetime('now') WHERE rowid = @RowId";
         command.Parameters.Add("@RowId", DbType.UInt32).Value = rowId;
         command.ExecuteNonQuery();
+        command.Dispose();
 
         _lastHash = hash;
         return;
       }
 
       // So data is new, let's add a new record then.
-      command = _db.CreateCommand();
+      command = Db.CreateCommand();
       command.CommandText = "INSERT INTO 'data' ('type', 'data', 'hash') VALUES (@Type, @Data, @Hash)";
       command.Parameters.Add("@Type", DbType.String).Value = "text/plain";
       command.Parameters.Add("@Data", DbType.Binary).Value = StringToBytes(text);
       command.Parameters.Add("@Hash", DbType.String).Value = hash;
       command.ExecuteNonQuery();
+      command.Dispose();
 
       _lastHash = hash;
     }
@@ -104,11 +91,11 @@ namespace ClipTracker {
     }
 
     public void GetAmount(int amount, GetCallback getCallback, object tag) {
-      SQLiteCommand Command = _db.CreateCommand();
-      Command.CommandText = "SELECT rowid, type, data FROM 'data' ORDER BY date DESC LIMIT @Amount";
-      Command.Parameters.Add("@Amount", DbType.Int32).Value = amount;
+      var command = Db.CreateCommand();
+      command.CommandText = "SELECT rowid, type, data FROM 'data' ORDER BY date DESC LIMIT @Amount";
+      command.Parameters.Add("@Amount", DbType.Int32).Value = amount;
 
-      SQLiteDataReader reader = Command.ExecuteReader();
+      var reader = command.ExecuteReader();
       while (reader.Read()) {
         byte[] data = GetBytes(reader, 2);
         getCallback(reader.GetInt32(0), reader.GetString(1), data, tag);
@@ -116,37 +103,28 @@ namespace ClipTracker {
     }
 
     public DataStorageItem GetItem(int id) {
-      SQLiteCommand Command = _db.CreateCommand();
-      Command.CommandText = "SELECT rowid, type, data FROM 'data' WHERE rowid = @Id";
-      Command.Parameters.Add("@Id", DbType.Int32).Value = id;
+      var command = Db.CreateCommand();
+      command.CommandText = "SELECT rowid, type, data FROM 'data' WHERE rowid = @Id";
+      command.Parameters.Add("@Id", DbType.Int32).Value = id;
 
-      var item = new DataStorageItem();
-      item.id = 0;
+      DataStorageItem item;
 
-      SQLiteDataReader reader = Command.ExecuteReader();
+      var reader = command.ExecuteReader();
       if (reader.HasRows) {
         reader.Read();
 
-        item.id = reader.GetInt32(0);
-        item.type = reader.GetString(1);
-        item.data = GetBytes(reader, 2);
+        item = new DataStorageItem {
+          Id = reader.GetInt32(0),
+          Type = reader.GetString(1),
+          Data = GetBytes(reader, 2)
+        };
+      } else {
+        item = new DataStorageItem {
+          Id = 0
+        };
       }
 
       return item;
-    }
-
-    static byte[] GetBytes(SQLiteDataReader reader, int i) {
-      const int CHUNK_SIZE = 2 * 1024;
-      byte[] buffer = new byte[CHUNK_SIZE];
-      long bytesRead;
-      long fieldOffset = 0;
-      using (MemoryStream stream = new MemoryStream()) {
-        while ((bytesRead = reader.GetBytes(i, fieldOffset, buffer, 0, buffer.Length)) > 0) {
-          stream.Write(buffer, 0, (int) bytesRead);
-          fieldOffset += bytesRead;
-        }
-        return stream.ToArray();
-      }
     }
   }
 }
